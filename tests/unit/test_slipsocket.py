@@ -37,7 +37,9 @@ EXPLICITLY_EXPOSED_SOCKET_METHODS = (
     "getsockopt",
     "gettimeout",
     "listen",
+    "setblocking",
     "setsockopt",
+    "settimeout",
     "shutdown",
 )
 
@@ -58,10 +60,10 @@ NOT_DELEGATED_METHODS = tuple(
 
 @pytest.mark.parametrize(
     ("address", "family", "remote_address"),
-    (
+    [
         (("127.0.0.1", 12345), socket.AF_INET, ("93.184.216.34", 54321)),
         (("::1", 12345, 0, 0), socket.AF_INET6, ("2606:2800:220:1:248:1893:25c8:1946", 54321, 0, 0)),
-    ),
+    ],
 )
 class TestSlipSocket:
     """Tests for SlipSocket"""
@@ -276,9 +278,9 @@ class TestSlipSocket:
         assert self.sock_mock.listen.mock_calls == [mocker.call(), mocker.call(5)]
 
     def test_setsockopt_method(self) -> None:
-        """Test that the getsockopt method is delegated to the socket."""
-        self.slipsocket.setsockopt(27, 5)
-        self.sock_mock.setsockopt.assert_called_once_with(27, 5)
+        """Test that the setsockopt method is delegated to the socket."""
+        self.slipsocket.setsockopt(27, 5, 3)
+        self.sock_mock.setsockopt.assert_called_once_with(27, 5, 3)
 
     def test_shutdown_method(self) -> None:
         """Test that the shutdown method is delegated to the socket."""
@@ -301,10 +303,13 @@ class TestSlipSocket:
             assert len(warning) == 1
             assert issubclass(warning[0].category, DeprecationWarning)
             assert "will be removed in version 1.0" in str(warning[0].message)
-        if method == "set_inheritable":
-            args: tuple[()] | tuple[Any] = (True,)
-        else:
-            args = ()
+        arg_dict = {
+            "ioctl": (1, 2),
+            "set_inheritable": (True,),
+            "setblocking": (True,),
+            "settimeout": (5,),
+        }
+        args: tuple[()] | tuple[Any, ...] = arg_dict.get(method, ())
         socket_method(*args)
         getattr(self.sock_mock, method).assert_called_once_with(*args)
 
